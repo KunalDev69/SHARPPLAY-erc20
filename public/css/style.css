@@ -884,6 +884,7 @@ form input:focus {
   font-size: 0.9rem;
   padding: 0.7rem 1.3rem;
   white-space: nowrap;
+  transition: all var(--transition-base);
 }
 
 #connectWalletBtn.connected {
@@ -891,6 +892,16 @@ form input:focus {
   color: white;
   border-color: var(--success-color);
   animation: glow-pulse 2s infinite;
+}
+
+#connectWalletBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+#connectWalletBtn:not(.connected):not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 
 @keyframes glow-pulse {
@@ -1418,7 +1429,7 @@ form input:focus {
   transform: translateX(-50%);
   width: calc(100% - 40px);
   max-width: 500px;
-  background: blur(1);
+  background: rgba(22, 27, 43, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border-color);
@@ -1479,7 +1490,7 @@ form input:focus {
 
 /* Add padding to body to prevent content from being hidden behind bottom nav */
 body {
-  padding-bottom: 80px;
+  padding-bottom: 100px; /* Increased from 80px to provide more space */
 }
 
 /* Mobile optimizations */

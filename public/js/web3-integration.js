@@ -56,6 +56,16 @@ async function initWeb3() {
 // Connect Wallet
 async function connectWallet() {
   try {
+    // Check if user is signed in first
+    if (typeof currentUser === 'undefined' || !currentUser) {
+      alert('⚠️ Please sign in first before connecting your wallet.\n\nSign in to link your wallet to your SharpPlay account and start earning SHARP tokens!');
+      // Show login modal if available
+      if (typeof showLoginModal === 'function') {
+        showLoginModal();
+      }
+      return null;
+    }
+    
     if (!web3Instance) {
       const initialized = await initWeb3();
       if (!initialized) {
@@ -82,16 +92,11 @@ async function connectWallet() {
     // Update UI
     updateWalletUI(true);
     
-    // Save wallet address to Firebase if user is logged in
-    try {
-      if (typeof currentUser !== 'undefined' && currentUser) {
-        await saveWalletToFirebase(connectedWalletAddress);
-      }
-    } catch (error) {
-      console.log('User not logged in, skipping Firebase wallet save');
-    }
+    // Save wallet address to Firebase (user is guaranteed to be logged in at this point)
+    await saveWalletToFirebase(connectedWalletAddress);
     
     console.log('Wallet connected:', connectedWalletAddress);
+    alert('✅ Wallet connected successfully!\n\nYour wallet is now linked to your account. You can now earn SHARP tokens by playing games!');
     return connectedWalletAddress;
     
   } catch (error) {
@@ -346,6 +351,8 @@ function updateWalletUI(connected) {
     if (connectBtn) {
       connectBtn.textContent = 'Wallet Connected';
       connectBtn.classList.add('connected');
+      connectBtn.disabled = false;
+      connectBtn.title = 'Wallet is connected';
     }
     
     if (walletInfo) {
@@ -361,8 +368,21 @@ function updateWalletUI(connected) {
     
   } else {
     if (connectBtn) {
-      connectBtn.textContent = '🦊 Connect Wallet';
-      connectBtn.classList.remove('connected');
+      // Check if user is logged in to determine button state
+      const isLoggedIn = typeof currentUser !== 'undefined' && currentUser;
+      
+      if (isLoggedIn) {
+        connectBtn.textContent = '🦊 Connect Wallet';
+        connectBtn.classList.remove('connected');
+        connectBtn.disabled = false;
+        connectBtn.title = 'Connect your MetaMask wallet';
+      } else {
+        connectBtn.textContent = '🔒 Sign In to Connect';
+        connectBtn.classList.remove('connected');
+        connectBtn.disabled = false; // Keep enabled so click shows login modal
+        connectBtn.title = 'Please sign in first to connect wallet';
+        connectBtn.style.opacity = '0.7';
+      }
     }
     
     if (walletInfo) {
