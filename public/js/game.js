@@ -327,7 +327,7 @@ function showTransactionPopup(txHash, reward, blockExplorer) {
     transform: translate(-50%, -50%);
     background: linear-gradient(135deg, rgba(36, 45, 66, 0.98) 0%, rgba(30, 37, 54, 0.98) 100%);
     backdrop-filter: blur(20px);
-    border: 2px solid var(--primary-orange, #F6851B);
+    border: 2px solid #F6851B;
     border-radius: 20px;
     padding: 2rem;
     z-index: 10000;

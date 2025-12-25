@@ -19,6 +19,9 @@ const GAME_COOLDOWN = 60 * 60 * 1000; // 1 hour in milliseconds
 
 const VALID_GAMES = ['memory', 'color-rush', 'sharp-shooter', 'stack-game'];
 
+// Constants
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
 // ERC20 Token ABI (minimal for transfer)
 const ERC20_ABI = [
   "function transfer(address to, uint256 amount) returns (bool)",
@@ -292,7 +295,7 @@ async function transferSHARPTokens(uid, toAddress, amount) {
     console.log('   RPC URL:', rpcUrl);
     console.log('   Token Address:', tokenAddress ? tokenAddress.substring(0, 10) + '...' : 'NOT SET');
 
-    if (!privateKey || !tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
+    if (!privateKey || !tokenAddress || tokenAddress === ZERO_ADDRESS) {
       console.warn('Web3 configuration missing, skipping token transfer');
 
       // Save pending transaction

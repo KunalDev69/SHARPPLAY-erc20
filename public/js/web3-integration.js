@@ -96,7 +96,10 @@ async function connectWallet() {
     await saveWalletToFirebase(connectedWalletAddress);
     
     console.log('Wallet connected:', connectedWalletAddress);
-    alert('✅ Wallet connected successfully!\n\nYour wallet is now linked to your account. You can now earn SHARP tokens by playing games!');
+    
+    // Show a brief success message
+    console.log('✅ Wallet connected successfully! Address:', connectedWalletAddress);
+    
     return connectedWalletAddress;
     
   } catch (error) {

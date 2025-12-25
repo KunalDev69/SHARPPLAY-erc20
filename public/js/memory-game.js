@@ -455,28 +455,6 @@ function showTransactionPopup(txHash, reward, blockExplorer) {
     }
   }, 15000);
 }
-      window.location.href = 'index.html';
-    } else if (error.code === 'unavailable' || error.message.includes('offline')) {
-      alert('📶 Connection Issue!\n\nYou appear to be offline or have a slow connection.\nYour score will be saved when you reconnect.\n\nYour progress has been noted locally!');
-      
-      // Store locally for later sync
-      const localScore = {
-        score, moves, difficulty, 
-        timestamp: Date.now(),
-        gameType: 'memory'
-      };
-      localStorage.setItem('pending_score_' + Date.now(), JSON.stringify(localScore));
-      
-      setTimeout(() => {
-        window.location.href = 'games.html';
-      }, 3000);
-    } else {
-      alert(`❌ Error submitting score: ${error.message}\n\nError code: ${error.code || 'unknown'}\n\nPlease try again or contact support.`);
-    }
-  }
-}
-
-// Function removed - using shared game-utils.js instead
 
 // Auto-start on page load
 window.addEventListener('load', () => {
