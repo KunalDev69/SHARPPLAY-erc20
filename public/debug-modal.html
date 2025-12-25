@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modal Debug Test</title>
+  <style>
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: #1a1a2e;
+      padding: 2rem;
+      border-radius: 1rem;
+      color: white;
+      max-width: 480px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .stat-item {
+      margin: 1rem 0;
+      padding: 0.5rem;
+      background: rgba(255,255,255,0.1);
+      border-radius: 0.5rem;
+    }
+
+    .btn {
+      padding: 1rem 2rem;
+      margin: 0.5rem;
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+  </style>
+</head>
+<body style="background: #0f0f1e; color: white; font-family: Arial, sans-serif;">
+
+  <h1>Modal Debug Test</h1>
+  <button onclick="showTestModal()" class="btn btn-primary">Test Modal Display</button>
+  <button onclick="showForceModal()" class="btn btn-secondary">Force Modal Display</button>
+
+  <!-- Test Modal -->
+  <div id="gameOverPanel" class="modal">
+    <div class="modal-content">
+      <h2>🎉 Test Modal</h2>
+      <div class="stat-item">
+        <span>Final Score: </span>
+        <span id="finalScore">12,700</span>
+      </div>
+      <div class="stat-item">
+        <span>Moves: </span>
+        <span id="finalMoves">16</span>
+      </div>
+      <div class="stat-item">
+        <span>Time: </span>
+        <span id="finalTime">42s</span>
+      </div>
+      <div class="stat-item">
+        <span>SHARP Reward: </span>
+        <span id="sharpReward">5 SHARP</span>
+      </div>
+      <div>
+        <button onclick="closeModal()" class="btn btn-primary">Close Modal</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showTestModal() {
+      const modal = document.getElementById('gameOverPanel');
+      modal.style.display = 'flex';
+      console.log('Test modal shown');
+    }
+
+    function showForceModal() {
+      const modal = document.getElementById('gameOverPanel');
+      
+      // Force modal to show with inline styles that override everything
+      modal.setAttribute('style', `
+        display: flex !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        z-index: 999999 !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background-color: rgba(0, 0, 0, 0.9) !important;
+      `);
+      
+      console.log('Force modal shown');
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('gameOverPanel');
+      modal.style.display = 'none';
+    }
+
+    // Test if modal shows automatically after 2 seconds
+    setTimeout(() => {
+      console.log('Auto-testing modal in 2 seconds...');
+      showForceModal();
+    }, 2000);
+  </script>
+
+</body>
+</html>

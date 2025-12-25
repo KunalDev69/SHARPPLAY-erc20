@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stack Tower - SharpPlay</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        . game-container {
+            background: rgba(30, 41, 59, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+            position: relative;
+            border: 2px solid rgba(100, 116, 139, 0.3);
+        }
+
+        .difficulty-badge {
+            position: absolute;
+            top: -10px;
+            right: 20px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.75em;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(245, 158, 11, 0.4);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        . header h1 {
+            background: linear-gradient(135deg, #38bdf8, #0ea5e9, #0284c7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            animation: glow 2s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.3); }
+        }
+
+        . header p {
+            color: #94a3b8;
+            font-size: 0.9em;
+        }
+
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .stat {
+            background: rgba(51, 65, 85, 0.5);
+            padding: 12px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid rgba(100, 116, 139, 0.3);
+        }
+
+        .stat-label {
+            font-size: 0.75em;
+            color: #94a3b8;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.6em;
+            font-weight: bold;
+            color: #38bdf8;
+        }
+
+        .stat-value.combo {
+            color: #f59e0b;
+            animation: pulse 0.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        . game-canvas-wrapper {
+            position: relative;
+            background: linear-gradient(180deg, #1e3a8a 0%, #1e293b 100%);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(59, 130, 246, 0.2);
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 500px;
+            cursor: pointer;
+        }
+
+        .instructions {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(30, 41, 59, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            border: 2px solid rgba(59, 130, 246, 0.5);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            z-index: 100;
+        }
+
+        .instructions. hidden {
+            display: none;
+        }
+
+        .instructions h2 {
+            color: #38bdf8;
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+
+        .instructions p {
+            color: #cbd5e1;
+            margin: 15px 0;
+            font-size: 1.1em;
+            line-height: 1.6;
+        }
+
+        .instructions . highlight {
+            color: #f59e0b;
+            font-weight: bold;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            margin-top: 20px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(14, 165, 233, 0.6);
+        }
+
+        .game-over-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: linear-gradient(135deg, #1e293b, #334155);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0. 8);
+            text-align: center;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+            min-width: 350px;
+            border: 2px solid rgba(59, 130, 246, 0.5);
+        }
+
+        .game-over-modal.show {
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .game-over-modal h2 {
+            background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 20px;
+            font-size: 2. 5em;
+        }
+
+        .game-over-modal . tower-height {
+            font-size: 4em;
+            font-weight: bold;
+            color: #38bdf8;
+            margin: 20px 0;
+            text-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
+        }
+
+        .game-over-modal . final-stats {
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(51, 65, 85, 0.5);
+            border-radius: 10px;
+        }
+
+        .game-over-modal .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            font-size: 1em;
+            color: #cbd5e1;
+        }
+
+        .game-over-modal . stat-row span:last-child {
+            color: #38bdf8;
+            font-weight: bold;
+        }
+
+        .game-over-modal .earned {
+            font-size: 2. 5em;
+            font-weight: bold;
+            margin: 20px 0;
+            color: #10b981;
+        }
+
+        .perfect-badge {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            color: #78350f;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin: 10px 0;
+            display: inline-block;
+            animation: shine 1s ease-in-out infinite;
+        }
+
+        @keyframes shine {
+            0%, 100% { box-shadow: 0 0 10px rgba(251, 191, 36, 0.5); }
+            50% { box-shadow: 0 0 20px rgba(251, 191, 36, 0.8); }
+        }
+
+        . back-link {
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        .back-link a {
+            color: #38bdf8;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .back-link a:hover {
+            color: #0ea5e9;
+        }
+
+        @media (max-width: 600px) {
+            .game-container {
+                padding: 15px;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            #gameCanvas {
+                height: 400px;
+            }
+
+            . instructions {
+                padding: 20px;
+            }
+        }
+
+        /* Block colors */
+        .block-color-1 { fill: #ef4444; }
+        .block-color-2 { fill: #f59e0b; }
+        .block-color-3 { fill: #10b981; }
+        .block-color-4 { fill: #3b82f6; }
+        .block-color-5 { fill: #8b5cf6; }
+        .block-color-6 { fill: #ec4899; }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="difficulty-badge">🎯 MEDIUM</div>
+        
+        <div class="header">
+            <h1>🏗️ STACK TOWER</h1>
+            <p>Build the highest tower!  Precision is key!</p>
+        </div>
+
+        <div class="stats-bar">
+            <div class="stat">
+                <div class="stat-label">🏗️ Height</div>
+                <div class="stat-value" id="height">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">💎 Perfect</div>
+                <div class="stat-value combo" id="perfect">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">💰 SHARP</div>
+                <div class="stat-value" id="earned">0. 00</div>
+            </div>
+        </div>
+
+        <div class="game-canvas-wrapper">
+            <canvas id="gameCanvas"></canvas>
+            
+            <div class="instructions" id="instructions">
+                <h2>🎮 How to Play</h2>
+                <p>🏗️ Tap/Click to <span class="highlight">drop the block</span></p>
+                <p>🎯 Stack blocks <span class="highlight">perfectly aligned</span> for bonus points!</p>
+                <p>⚡ The more perfect stacks, the <span class="highlight">higher the combo</span>!</p>
+                <p>💰 Earn <span class="highlight">1 SHARP per 10 blocks</span> + bonuses!</p>
+                <button class="btn btn-primary" onclick="startGame()">
+                    🚀 START STACKING
+                </button>
+            </div>
+        </div>
+
+        <div class="game-over-modal" id="gameOverModal">
+            <h2> TOWER COMPLETE!</h2>
+            <div class="tower-height" id="finalHeight">0</div>
+            <div id="perfectBadge"></div>
+            <div class="final-stats">
+                <div class="stat-row">
+                    <span>Total Blocks:</span>
+                    <span id="finalBlocks">0</span>
+                </div>
+                <div class="stat-row">
+                    <span>Perfect Stacks:</span>
+                    <span id="finalPerfect">0</span>
+                </div>
+                <div class="stat-row">
+                    <span>Max Combo:</span>
+                    <span id="finalCombo">0</span>
+                </div>
+                <div class="stat-row">
+                    <span>Accuracy:</span>
+                    <span id="finalAccuracy">0%</span>
+                </div>
+            </div>
+            <div class="earned" id="finalEarned">+0.0 SHARP</div>
+            <button class="btn btn-primary" onclick="playAgain()">
+                🔄 PLAY AGAIN
+            </button>
+        </div>
+
+        <div class="back-link">
+            <a href="games.html">← Back to Games Hub</a>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // GAME CONFIGURATION
+        // ============================================
+
+        const CONFIG = {
+            BLOCK_WIDTH: 100,
+            BLOCK_HEIGHT: 30,
+            BASE_SPEED: 2,
+            SPEED_INCREMENT: 0.1,
+            PERFECT_THRESHOLD: 5,
+            REWARD_PER_10_BLOCKS: 1,
+            PERFECT_BONUS: 0.5,
+            COLORS: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899']
+        };
+
+        // ============================================
+        // GAME STATE
+        // ============================================
+
+        let gameState = {
+            blocks: [],
+            currentBlock: null,
+            direction: 1,
+            speed: CONFIG.BASE_SPEED,
+            height: 0,
+            perfectCount: 0,
+            combo: 0,
+            maxCombo: 0,
+            isPlaying: false,
+            canvas: null,
+            ctx: null,
+            animationFrame: null,
+            startTime: null
+        };
+
+        // ============================================
+        // BLOCK CLASS
+        // ============================================
+
+        class Block {
+            constructor(x, y, width, height, color, isBase = false) {
+                this. x = x;
+                this. y = y;
+                this. width = width;
+                this. height = height;
+                this. color = color;
+                this. isBase = isBase;
+                this.placed = isBase;
+            }
+
+            draw(ctx) {
+                // Draw block with 3D effect
+                ctx.save();
+                
+                // Main block
+                ctx.fillStyle = this. color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // Top highlight
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.fillRect(this.x, this.y, this.width, this.height * 0.3);
+                
+                // Side shadow
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.fillRect(this.x + this.width * 0.9, this.y, this.width * 0.1, this.height);
+                
+                // Border
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.lineWidth = 2;
+                ctx. strokeRect(this.x, this.y, this.width, this.height);
+                
+                ctx.restore();
+            }
+
+            update(speed, direction) {
+                if (!this.placed) {
+                    this.x += speed * direction;
+                }
+            }
+
+            getOverlap(previousBlock) {
+                const left = Math.max(this.x, previousBlock.x);
+                const right = Math.min(
+                    this.x + this. width,
+                    previousBlock. x + previousBlock.width
+                );
+                return Math.max(0, right - left);
+            }
+        }
+
+        // ============================================
+        // GAME FUNCTIONS
+        // ============================================
+
+        function initCanvas() {
+            gameState.canvas = document.getElementById('gameCanvas');
+            gameState. ctx = gameState.canvas.getContext('2d');
+            
+            gameState.canvas.width = gameState.canvas.offsetWidth;
+            gameState.canvas.height = 500;
+
+            gameState.canvas.addEventListener('click', dropBlock);
+            
+            gameLoop();
+        }
+
+        function startGame() {
+            gameState. blocks = [];
+            gameState.height = 0;
+            gameState.perfectCount = 0;
+            gameState.combo = 0;
+            gameState.maxCombo = 0;
+            gameState.speed = CONFIG.BASE_SPEED;
+            gameState.direction = 1;
+            gameState.isPlaying = true;
+            gameState.startTime = Date.now();
+            
+            document.getElementById('instructions').classList.add('hidden');
+            
+            // Create base block
+            const baseBlock = new Block(
+                gameState.canvas.width / 2 - CONFIG.BLOCK_WIDTH / 2,
+                gameState.canvas.height - CONFIG.BLOCK_HEIGHT,
+                CONFIG.BLOCK_WIDTH,
+                CONFIG. BLOCK_HEIGHT,
+                CONFIG.COLORS[0],
+                true
+            );
+            gameState.blocks.push(baseBlock);
+            
+            // Create first moving block
+            spawnBlock();
+            
+            updateUI();
+        }
+
+        function spawnBlock() {
+            const previousBlock = gameState.blocks[gameState.blocks.length - 1];
+            const colorIndex = gameState.blocks.length % CONFIG.COLORS. length;
+            
+            const newBlock = new Block(
+                0,
+                previousBlock.y - CONFIG.BLOCK_HEIGHT,
+                previousBlock.width,
+                CONFIG. BLOCK_HEIGHT,
+                CONFIG.COLORS[colorIndex]
+            );
+            
+            gameState.currentBlock = newBlock;
+            gameState.blocks.push(newBlock);
+        }
+
+        function dropBlock() {
+            if (!gameState. isPlaying || !gameState. currentBlock || gameState.currentBlock.placed) {
+                return;
+            }
+
+            const currentBlock = gameState.currentBlock;
+            const previousBlock = gameState.blocks[gameState.blocks.length - 2];
+            
+            // Calculate overlap
+            const overlap = currentBlock. getOverlap(previousBlock);
+            
+            if (overlap <= 0) {
+                // Complete miss - game over
+                gameOver();
+                return;
+            }
+            
+            // Check if perfect
+            const isPerfect = Math.abs(currentBlock.x - previousBlock.x) < CONFIG.PERFECT_THRESHOLD;
+            
+            if (isPerfect) {
+                // Perfect placement
+                gameState.perfectCount++;
+                gameState.combo++;
+                gameState.maxCombo = Math.max(gameState. maxCombo, gameState.combo);
+                
+                // Keep same width for perfect placement
+                currentBlock.x = previousBlock.x;
+                currentBlock.width = previousBlock.width;
+                
+                // Visual feedback
+                createPerfectEffect(currentBlock. x + currentBlock.width / 2, currentBlock.y);
+            } else {
+                // Partial overlap
+                gameState.combo = 0;
+                
+                // Adjust block size and position
+                currentBlock.x = Math.max(currentBlock.x, previousBlock.x);
+                currentBlock.width = overlap;
+                
+                // Cut off effect
+                createCutEffect(
+                    currentBlock.x + currentBlock.width,
+                    currentBlock.y,
+                    previousBlock.width - overlap
+                );
+            }
+            
+            currentBlock.placed = true;
+            gameState.height++;
+            
+            // Increase difficulty
+            gameState.speed += CONFIG.SPEED_INCREMENT;
+            gameState.direction *= -1;
+            
+            updateUI();
+            
+            // Check if block is too small
+            if (currentBlock.width < 20) {
+                gameOver();
+                return;
+            }
+            
+            // Spawn next block
+            setTimeout(() => {
+                if (gameState.isPlaying) {
+                    spawnBlock();
+                }
+            }, 200);
+        }
+
+        function createPerfectEffect(x, y) {
+            // Create particle burst
+            const particles = [];
+            for (let i = 0; i < 20; i++) {
+                particles. push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0. 5) * 8,
+                    vy: (Math.random() - 0. 5) * 8,
+                    life: 1,
+                    color: '#fbbf24'
+                });
+            }
+            
+            const animate = () => {
+                const ctx = gameState.ctx;
+                
+                particles.forEach(p => {
+                    if (p.life <= 0) return;
+                    
+                    ctx.save();
+                    ctx. globalAlpha = p.life;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                    ctx. fill();
+                    ctx.restore();
+                    
+                    p.x += p.vx;
+                    p.y += p. vy;
+                    p. vy += 0.2;
+                    p.life -= 0.02;
+                });
+                
+                if (particles.some(p => p.life > 0)) {
+                    requestAnimationFrame(animate);
+                }
+            };
+            
+            animate();
+            
+            // Show text
+            showFloatingText('PERFECT!', x, y, '#fbbf24');
+        }
+
+        function createCutEffect(x, y, width) {
+            const ctx = gameState. ctx;
+            const pieces = [];
+            
+            for (let i = 0; i < 10; i++) {
+                pieces. push({
+                    x: x + Math.random() * width,
+                    y: y,
+                    vy: -Math.random() * 5 - 2,
+                    vx: (Math.random() - 0.5) * 4,
+                    rotation: Math.random() * Math. PI * 2,
+                    rotationSpeed: (Math.random() - 0. 5) * 0.3,
+                    size: Math.random() * 8 + 4,
+                    life: 1,
+                    color: gameState.currentBlock.color
+                });
+            }
+            
+            const animate = () => {
+                pieces.forEach(p => {
+                    if (p.life <= 0) return;
+                    
+                    ctx.save();
+                    ctx.globalAlpha = p.life;
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate(p.rotation);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                    ctx.restore();
+                    
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.3;
+                    p.rotation += p.rotationSpeed;
+                    p.life -= 0.02;
+                });
+                
+                if (pieces.some(p => p.life > 0)) {
+                    requestAnimationFrame(animate);
+                }
+            };
+            
+            animate();
+        }
+
+        function showFloatingText(text, x, y, color) {
+            const ctx = gameState.ctx;
+            let alpha = 1;
+            let offsetY = 0;
+            let startTime = Date.now();
+            
+            const animate = () => {
+                if (Date.now() - startTime > 1000) return;
+                
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = color;
+                ctx. font = 'bold 24px Arial';
+                ctx.textAlign = 'center';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = color;
+                ctx.fillText(text, x, y - offsetY);
+                ctx.restore();
+                
+                alpha -= 0.02;
+                offsetY += 2;
+                
+                requestAnimationFrame(animate);
+            };
+            
+            animate();
+        }
+
+        function gameLoop() {
+            const ctx = gameState.ctx;
+            const canvas = gameState.canvas;
+
+            // Clear canvas
+            ctx. clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw sky gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#1e3a8a');
+            gradient.addColorStop(1, '#1e293b');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw clouds
+            drawClouds(ctx, canvas);
+
+            // Calculate camera offset for tall towers
+            let cameraOffset = 0;
+            if (gameState.blocks.length > 10) {
+                const topBlock = gameState.blocks[gameState.blocks.length - 1];
+                cameraOffset = Math.max(0, canvas.height - 200 - topBlock.y);
+            }
+
+            // Draw blocks
+            ctx.save();
+            ctx.translate(0, cameraOffset);
+            
+            for (let i = 0; i < gameState.blocks.length; i++) {
+                const block = gameState.blocks[i];
+                
+                // Update moving block
+                if (! block.placed && block === gameState.currentBlock) {
+                    block.update(gameState.speed, gameState.direction);
+                    
+                    // Bounce off edges
+                    if (block.x <= 0 || block.x + block.width >= canvas.width) {
+                        gameState.direction *= -1;
+                        block.x = Math.max(0, Math.min(block.x, canvas.width - block.width));
+                    }
+                }
+                
+                block.draw(ctx);
+            }
+            
+            ctx.restore();
+
+            // Draw crane at top
+            if (gameState.currentBlock && ! gameState.currentBlock.placed) {
+                drawCrane(ctx, gameState.currentBlock.x + gameState.currentBlock.width / 2, 50);
+            }
+
+            gameState.animationFrame = requestAnimationFrame(gameLoop);
+        }
+
+        function drawClouds(ctx, canvas) {
+            const time = Date.now() * 0.0001;
+            
+            for (let i = 0; i < 3; i++) {
+                const x = ((time * 20 + i * 200) % (canvas.width + 100)) - 50;
+                const y = 50 + i * 40;
+                
+                ctx.save();
+                ctx.globalAlpha = 0. 3;
+                ctx.fillStyle = 'white';
+                
+                ctx.beginPath();
+                ctx. arc(x, y, 20, 0, Math.PI * 2);
+                ctx.arc(x + 25, y, 25, 0, Math.PI * 2);
+                ctx.arc(x + 50, y, 20, 0, Math. PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+            }
+        }
+
+        function drawCrane(ctx, x, y) {
+            ctx.save();
+            
+            // Cable
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x, y + 30);
+            ctx.stroke();
+            
+            // Hook
+            ctx.fillStyle = '#fbbf24';
+            ctx. beginPath();
+            ctx.arc(x, y + 35, 5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Crane arm
+            ctx.strokeStyle = '#fbbf24';
+            ctx. lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(x - 100, y);
+            ctx.lineTo(x + 100, y);
+            ctx.stroke();
+            
+            // Crane tower
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(x - 8, y - 60, 16, 60);
+            
+            // Crane top
+            ctx.beginPath();
+            ctx.moveTo(x - 15, y - 60);
+            ctx.lineTo(x, y - 75);
+            ctx.lineTo(x + 15, y - 60);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
+        function updateUI() {
+            document.getElementById('height').textContent = gameState.height;
+            document.getElementById('perfect').textContent = gameState.perfectCount;
+            
+            const earned = (gameState.height / 10) * CONFIG.REWARD_PER_10_BLOCKS + 
+                          (gameState. perfectCount * CONFIG.PERFECT_BONUS);
+            document.getElementById('earned').textContent = earned. toFixed(2);
+            
+            // Animate combo
+            if (gameState.combo >= 3) {
+                document.getElementById('perfect'). style.animation = 'pulse 0.5s ease-in-out infinite';
+            } else {
+                document.getElementById('perfect').style.animation = 'none';
+            }
+        }
+
+        function gameOver() {
+            if (!gameState.isPlaying) return;
+            
+            gameState.isPlaying = false;
+            
+            const playDuration = Date.now() - gameState.startTime;
+            const finalReward = (gameState.height / 10) * CONFIG.REWARD_PER_10_BLOCKS + 
+                               (gameState.perfectCount * CONFIG.PERFECT_BONUS);
+            const accuracy = gameState.height > 0 
+                ?  Math.round((gameState.perfectCount / gameState.height) * 100)
+                : 0;
+            
+            // Show results
+            document.getElementById('finalHeight').textContent = gameState.height;
+            document.getElementById('finalBlocks').textContent = gameState. height;
+            document.getElementById('finalPerfect').textContent = gameState.perfectCount;
+            document. getElementById('finalCombo').textContent = gameState. maxCombo + 'x';
+            document.getElementById('finalAccuracy').textContent = accuracy + '%';
+            document.getElementById('finalEarned').textContent = '+' + finalReward.toFixed(2) + ' SHARP';
+            
+            // Show perfect badge
+            if (accuracy >= 80) {
+                document.getElementById('perfectBadge').innerHTML = 
+                    '<div class="perfect-badge">🏆 MASTER BUILDER! </div>';
+            } else if (accuracy >= 50) {
+                document.getElementById('perfectBadge').innerHTML = 
+                    '<div class="perfect-badge">⭐ SKILLED BUILDER</div>';
+            } else {
+                document.getElementById('perfectBadge').innerHTML = '';
+            }
+            
+            document.getElementById('gameOverModal').classList.add('show');
+            
+            // Submit score
+            submitScore(gameState.height, finalReward, playDuration);
+        }
+
+        async function submitScore(height, reward, duration) {
+            if (!currentUser) {
+                alert('Please login to submit your score!');
+                window.location.href = 'index.html';
+                return;
+            }
+            
+            console.log('Submitting stack game score:', { height, reward, duration });
+            
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const sharpReward = Math.min(5, Math.max(1, Math.floor(height / 4))); // 1 SHARP per 4 blocks
+                const accuracy = Math.round((gameState.perfectCount / height) * 100) || 0;
+                
+                console.log('Calculated reward:', sharpReward, 'for height:', height);
+                
+                // Save directly to Firestore
+                const scoreData = {
+                    uid: currentUser.uid,
+                    score: height,
+                    playDuration: duration,
+                    gameType: 'stack-game',
+                    height: height,
+                    perfectStacks: gameState.perfectCount,
+                    maxCombo: gameState.maxCombo,
+                    accuracy: accuracy,
+                    date: today,
+                    sharpEarned: sharpReward,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                
+                await db.collection('gamescores').add(scoreData);
+                console.log('Stack game score saved successfully');
+                
+                // Update user balance
+                const userRef = db.collection('users').doc(currentUser.uid);
+                await userRef.update({
+                    tokensBalance: firebase.firestore.FieldValue.increment(sharpReward),
+                    totalEarned: firebase.firestore.FieldValue.increment(sharpReward),
+                    lastPlayed: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                alert(`🎉 Score Submitted Successfully!\n\n🏗️ Stack Game\n📊 Height: ${height} blocks\n🎯 Perfect Stacks: ${gameState.perfectCount}\n🔥 Max Combo: ${gameState.maxCombo}\n💯 Accuracy: ${accuracy}%\n💰 Earned: ${sharpReward} SHARP\n\nPerfect stacking! 🚀`);
+                
+                setTimeout(() => {
+                    window.location.href = 'games.html';
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Error submitting stack game score:', error);
+                alert(`❌ Error submitting score: ${error.message}\n\nPlease try again or contact support.`);
+            }
+            
+            // TODO: Integrate with Firebase
+        }
+
+        function playAgain() {
+            document.getElementById('gameOverModal').classList.remove('show');
+            startGame();
+        }
+
+        // Initialize
+        window.addEventListener('load', () => {
+            initCanvas();
+        });
+
+        window.addEventListener('resize', () => {
+            const canvas = gameState.canvas;
+            canvas.width = canvas.offsetWidth;
+        });
+    </script>
+    
+    <!-- Firebase Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+</body>
+</html>
