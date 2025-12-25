@@ -274,36 +274,43 @@ async function submitScore() {
   
   try {
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
-    const today = new Date().toISOString().split('T')[0];
-    const sharpReward = Math.min(5, Math.max(1, Math.floor(score / 1500)));
     
-    console.log('Calculated reward:', sharpReward, 'for score:', score);
-    
-    // Save directly to Firestore
-    const scoreData = {
-      uid: currentUser.uid,
+    // Call Firebase Cloud Function to submit score and handle token transfer
+    const submitScoreFunction = firebase.functions().httpsCallable('submitScore');
+    const result = await submitScoreFunction({
       score: score,
       playDuration: elapsed,
+      timestamp: Date.now(),
       gameType: 'color-rush',
-      level: level,
-      streak: bestStreak,
-      date: today,
-      sharpEarned: sharpReward,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    
-    await db.collection('gamescores').add(scoreData);
-    console.log('Color rush score saved successfully');
-    
-    // Update user balance
-    const userRef = db.collection('users').doc(currentUser.uid);
-    await userRef.update({
-      tokensBalance: firebase.firestore.FieldValue.increment(sharpReward),
-      totalEarned: firebase.firestore.FieldValue.increment(sharpReward),
-      lastPlayed: firebase.firestore.FieldValue.serverTimestamp()
+      difficulty: 'medium'
     });
+
+    const data = result.data;
     
-    alert(`🎉 Score Submitted Successfully!\n\n🌈 Color Rush\n🎯 Score: ${score}\n⏱️ Time: ${elapsed}s\n🏆 Level: ${level}\n🔥 Best Streak: ${bestStreak}x\n💰 Earned: ${sharpReward} SHARP\n\nAwesome reflexes! 🚀`);
+    // Build success message
+    let message = `🎉 Score Submitted Successfully!\n\n🌈 Color Rush\n🎯 Score: ${score}\n⏱️ Time: ${elapsed}s\n🏆 Level: ${level}\n🔥 Best Streak: ${bestStreak}x\n💰 Earned: ${data.reward.toFixed(2)} SHARP`;
+    
+    if (data.newBestScore) {
+      message += `\n\n🏆 New Best Score!`;
+    }
+    
+    if (data.dailyStreak > 0) {
+      message += `\n🔥 Daily Streak: ${data.dailyStreak} days`;
+    }
+    
+    message += `\n\nAwesome reflexes! 🚀`;
+
+    // Check if wallet is connected and show transaction info
+    if (data.txHash) {
+      message += `\n\n✅ Tokens transferred to your wallet!`;
+      
+      // Show transaction popup with Etherscan link
+      showTransactionPopup(data.txHash, data.reward, data.blockExplorer);
+    } else if (!data.walletAddress) {
+      message += `\n\n💡 Connect your wallet to receive tokens automatically!`;
+    }
+    
+    alert(message);
     
     setTimeout(() => {
       window.location.href = 'games.html';
@@ -312,19 +319,79 @@ async function submitScore() {
   } catch (error) {
     console.error('Error submitting color rush score:', error);
     
-    if (error.code === 'permission-denied') {
-      alert('❌ Permission Error!\n\nFirebase permissions not set up correctly.\nPlease try again in a few moments.');
-    } else if (error.code === 'unauthenticated') {
+    if (error.message && error.message.includes('unauthenticated')) {
       alert('❌ Not logged in!\n\nPlease log in again and try submitting.');
       window.location.href = 'index.html';
+    } else if (error.message && error.message.includes('failed-precondition')) {
+      alert('❌ ' + error.message);
     } else if (error.code === 'unavailable' || error.message.includes('offline')) {
-      alert('📶 Connection Issue!\n\nYou appear to be offline or have a slow connection.\nYour score will be saved when you reconnect.');
-      
-      setTimeout(() => {
-        window.location.href = 'games.html';
-      }, 3000);
+      alert('📶 Connection Issue!\n\nYou appear to be offline or have a slow connection.\nPlease try again when you have a stable connection.');
     } else {
-      alert(`❌ Error submitting score: ${error.message}\n\nPlease try again or contact support.`);
+      alert(`❌ Error submitting score: ${error.message || 'Unknown error'}\n\nPlease try again or contact support.`);
     }
   }
+}
+
+function showTransactionPopup(txHash, reward, blockExplorer) {
+  // Remove any existing transaction popup
+  const existingPopup = document.querySelector('.transaction-popup');
+  if (existingPopup) {
+    existingPopup.remove();
+  }
+
+  const popup = document.createElement('div');
+  popup.className = 'transaction-popup';
+  popup.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, rgba(36, 45, 66, 0.98) 0%, rgba(30, 37, 54, 0.98) 100%);
+    backdrop-filter: blur(20px);
+    border: 2px solid #F6851B;
+    border-radius: 20px;
+    padding: 2rem;
+    z-index: 10000;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+    min-width: 320px;
+    max-width: 90%;
+    text-align: center;
+  `;
+  
+  const explorerUrl = blockExplorer || `https://sepolia.etherscan.io/tx/${txHash}`;
+  const shortTxHash = `${txHash.substring(0, 10)}...${txHash.substring(txHash.length - 8)}`;
+  
+  popup.innerHTML = `
+    <div class="popup-content">
+      <h3 style="color: #28C76F; margin-bottom: 1rem; font-size: 1.5rem;">🎉 Tokens Sent!</h3>
+      <p style="color: #fff; font-size: 1.2rem; margin-bottom: 1rem;">
+        Earned: <strong style="color: #F6851B;">${reward.toFixed(2)} SHARP</strong>
+      </p>
+      <p style="color: #B8C0D4; font-size: 0.9rem; margin-bottom: 1rem;">
+        Transaction: <code style="background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 4px;">${shortTxHash}</code>
+      </p>
+      <a href="${explorerUrl}" target="_blank" rel="noopener noreferrer" 
+         style="display: inline-block; background: linear-gradient(135deg, #F6851B 0%, #E91E63 100%); 
+                color: white; padding: 0.75rem 1.5rem; border-radius: 12px; text-decoration: none; 
+                margin: 0.5rem; font-weight: 600; transition: all 0.3s;">
+        View on Etherscan
+      </a>
+      <button onclick="this.parentElement.parentElement.remove()" 
+              style="display: inline-block; background: rgba(255,255,255,0.1); color: white; 
+                     padding: 0.75rem 1.5rem; border: 1px solid rgba(255,255,255,0.2); 
+                     border-radius: 12px; margin: 0.5rem; cursor: pointer; font-weight: 600;
+                     transition: all 0.3s;">
+        Close
+      </button>
+    </div>
+  `;
+  
+  document.body.appendChild(popup);
+
+  // Auto-remove after 15 seconds
+  setTimeout(() => {
+    if (popup.parentElement) {
+      popup.remove();
+    }
+  }, 15000);
 }
