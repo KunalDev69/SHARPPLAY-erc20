@@ -251,86 +251,128 @@ async function submitScore() {
   try {
     const playDuration = game.getPlayDuration();
 
-    // Save score to Firestore directly
-    await db.collection('gamescores').add({
-      userId: currentUser.uid,
+    // Call Firebase Cloud Function to submit score and handle token transfer
+    const submitScoreFunction = firebase.functions().httpsCallable('submitScore');
+    const result = await submitScoreFunction({
       score: game.score,
       playDuration: playDuration,
+      timestamp: Date.now(),
       gameType: 'tap-reaction',
-      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-      createdAt: new Date().toISOString()
+      difficulty: 'medium'
     });
 
-    // Update user stats
-    const userRef = db.collection('users').doc(currentUser.uid);
-    const userDoc = await userRef.get();
-
-    if (userDoc.exists) {
-      const userData = userDoc.data();
-      const currentBest = userData.bestScore || 0;
-      const newBest = Math.max(currentBest, game.score);
-
-      await userRef.update({
-        bestScore: newBest,
-        lastPlayed: firebase.firestore.FieldValue.serverTimestamp(),
-        gamesPlayed: firebase.firestore.FieldValue.increment(1)
-      });
+    const data = result.data;
+    
+    // Show success message
+    let message = `🎉 Score Submitted!\n\nScore: ${game.score}\nReward: ${data.reward.toFixed(2)} SHARP\n`;
+    
+    if (data.newBestScore) {
+      message += `\n🏆 New Best Score!`;
+    }
+    
+    if (data.dailyStreak > 0) {
+      message += `\n🔥 Daily Streak: ${data.dailyStreak} days`;
     }
 
-    // Update leaderboard
-    await db.collection('leaderboard').doc(currentUser.uid).set({
-      username: currentUser.displayName || currentUser.email?.split('@')[0] || 'Player',
-      bestScore: game.score,
-      totalEarned: 0,
-      dailyStreak: 0,
-      lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-
-    // Calculate reward (simple calculation)
-    const reward = (game.score / 10).toFixed(2);
-
-    alert(`Score submitted! 🎉\n\nScore: ${game.score}\nEstimated Reward: ${reward} SHARP\n\nNote: Actual token distribution requires backend setup.`);
-
-
-    // After score submission is successful
-    if (result.txHash) {
-      const polygonscanUrl = `https://polygonscan.com/tx/${result.txHash}`;
-      alert(`✅ Earned ${result.reward.toFixed(2)} SHARP!\n\n` +
-        `Transaction: ${result.txHash.substring(0, 10)}.. .\n\n` +
-        `View on Polygonscan: ${polygonscanUrl}`);
-
-      // Show transaction popup
-      showTransactionPopup(result.txHash, result.reward);
+    // Check if wallet is connected and show transaction info
+    if (data.txHash) {
+      message += `\n\n✅ Tokens transferred to your wallet!`;
+      
+      // Show transaction popup with Etherscan link
+      showTransactionPopup(data.txHash, data.reward, data.blockExplorer);
+      
+      alert(message);
+    } else if (data.walletAddress) {
+      message += `\n\n⏳ Token transfer pending...`;
+      alert(message);
+    } else {
+      message += `\n\n💡 Connect your wallet to receive tokens automatically!`;
+      alert(message);
     }
 
-    function showTransactionPopup(txHash, reward) {
-      const popup = document.createElement('div');
-      popup.className = 'transaction-popup';
-      popup.innerHTML = `
-    <div class="popup-content">
-      <h3>🎉 Tokens Sent!</h3>
-      <p>Earned: <strong>${reward.toFixed(2)} SHARP</strong></p>
-      <a href="https://polygonscan. com/tx/${txHash}" target="_blank" class="btn btn-primary">
-        View on Polygonscan
-      </a>
-      <button onclick="this.parentElement.parentElement.remove()" class="btn btn-secondary">Close</button>
-    </div>
-  `;
-      document.body.appendChild(popup);
-
-      // Auto-remove after 10 seconds
-      setTimeout(() => popup.remove(), 10000);
-    }
     // Close game over panel
     document.getElementById('gameOverPanel').style.display = 'none';
 
   } catch (error) {
     console.error('Error submitting score:', error);
-    alert('Failed to submit score. Please try again.');
+    
+    // Handle specific error messages
+    if (error.message && error.message.includes('unauthenticated')) {
+      alert('❌ Please sign in to submit your score.');
+      showLoginModal();
+    } else if (error.message && error.message.includes('failed-precondition')) {
+      alert('❌ ' + error.message);
+    } else {
+      alert('❌ Failed to submit score. Please try again.\n\nError: ' + (error.message || 'Unknown error'));
+    }
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Submit Score';
   }
+}
+
+function showTransactionPopup(txHash, reward, blockExplorer) {
+  // Remove any existing transaction popup
+  const existingPopup = document.querySelector('.transaction-popup');
+  if (existingPopup) {
+    existingPopup.remove();
+  }
+
+  const popup = document.createElement('div');
+  popup.className = 'transaction-popup';
+  popup.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, rgba(36, 45, 66, 0.98) 0%, rgba(30, 37, 54, 0.98) 100%);
+    backdrop-filter: blur(20px);
+    border: 2px solid #F6851B;
+    border-radius: 20px;
+    padding: 2rem;
+    z-index: 10000;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+    min-width: 320px;
+    max-width: 90%;
+    text-align: center;
+  `;
+  
+  const explorerUrl = blockExplorer || `https://sepolia.etherscan.io/tx/${txHash}`;
+  const shortTxHash = `${txHash.substring(0, 10)}...${txHash.substring(txHash.length - 8)}`;
+  
+  popup.innerHTML = `
+    <div class="popup-content">
+      <h3 style="color: #28C76F; margin-bottom: 1rem; font-size: 1.5rem;">🎉 Tokens Sent!</h3>
+      <p style="color: #fff; font-size: 1.2rem; margin-bottom: 1rem;">
+        Earned: <strong style="color: #F6851B;">${reward.toFixed(2)} SHARP</strong>
+      </p>
+      <p style="color: #B8C0D4; font-size: 0.9rem; margin-bottom: 1rem;">
+        Transaction: <code style="background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 4px;">${shortTxHash}</code>
+      </p>
+      <a href="${explorerUrl}" target="_blank" rel="noopener noreferrer" 
+         style="display: inline-block; background: linear-gradient(135deg, #F6851B 0%, #E91E63 100%); 
+                color: white; padding: 0.75rem 1.5rem; border-radius: 12px; text-decoration: none; 
+                margin: 0.5rem; font-weight: 600; transition: all 0.3s;">
+        View on Etherscan
+      </a>
+      <button onclick="this.parentElement.parentElement.remove()" 
+              style="display: inline-block; background: rgba(255,255,255,0.1); color: white; 
+                     padding: 0.75rem 1.5rem; border: 1px solid rgba(255,255,255,0.2); 
+                     border-radius: 12px; margin: 0.5rem; cursor: pointer; font-weight: 600;
+                     transition: all 0.3s;">
+        Close
+      </button>
+    </div>
+  `;
+  
+  document.body.appendChild(popup);
+
+  // Auto-remove after 15 seconds
+  setTimeout(() => {
+    if (popup.parentElement) {
+      popup.remove();
+    }
+  }, 15000);
 }
 
 function showRewardPopup(data) {

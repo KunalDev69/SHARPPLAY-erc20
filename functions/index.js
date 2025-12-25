@@ -19,6 +19,9 @@ const GAME_COOLDOWN = 60 * 60 * 1000; // 1 hour in milliseconds
 
 const VALID_GAMES = ['memory', 'color-rush', 'sharp-shooter', 'stack-game'];
 
+// Constants
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
 // ERC20 Token ABI (minimal for transfer)
 const ERC20_ABI = [
   "function transfer(address to, uint256 amount) returns (bool)",
@@ -132,25 +135,31 @@ exports.submitScore = functions.https.onCall(async (data, context) => {
     await userRef.update(updateData);
 
     // Update leaderboard
-    await updateLeaderboard(uid, userData.username, score, userData.totalEarned + reward);
+    await updateLeaderboard(uid, userData.username, score, userData.totalEarned + sharpReward);
 
     // Transfer SHARP tokens if wallet address exists
     let txHash = null;
+    let blockExplorer = null;
     if (userData.walletAddress && userData.walletAddress.startsWith('0x')) {
-      txHash = await transferSHARPTokens(uid, userData.walletAddress, reward);
+      txHash = await transferSHARPTokens(uid, userData.walletAddress, sharpReward);
+      if (txHash) {
+        blockExplorer = `https://sepolia.etherscan.io/tx/${txHash}`;
+      }
     }
 
     // Handle referral bonus
     if (userData.invitedBy) {
-      await handleReferralBonus(userData.invitedBy, reward);
+      await handleReferralBonus(userData.invitedBy, sharpReward);
     }
 
     return {
       success: true,
-      reward: reward,
+      reward: sharpReward,
       dailyStreak: dailyStreak,
       newBestScore: score > (userData.bestScore || 0),
-      txHash: txHash
+      txHash: txHash,
+      blockExplorer: blockExplorer,
+      walletAddress: userData.walletAddress || null
     };
 
   } catch (error) {
@@ -275,27 +284,18 @@ async function updateLeaderboard(uid, username, score, totalEarned) {
 async function transferSHARPTokens(uid, toAddress, amount) {
   try {
     // Get configuration from environment
-    // const privateKey = functions.config().web3?.private_key || process.env.ADMIN_WALLET_PRIVATE_KEY;
-    // const tokenAddress = functions.config().web3?.token_address || process.env.SHARP_TOKEN_CONTRACT_ADDRESS;
-    // const rpcUrl = functions.config().web3?.rpc_url || process.env.RPC_URL || 'https://eth-mainnet.g.alchemy.com/v2/your-key';
-
-
     const privateKey = functions.config().web3?.private_key || process.env.ADMIN_WALLET_PRIVATE_KEY;
-    const tokenAddress = functions.config().web3?.token_address || process.env.SHARP_TOKEN_CONTRACT_ADDRESS;
-    const rpcUrl = functions.config().web3?.rpc_url || process.env.RPC_URL || 'https://polygon-rpc.com/';
-    // const chainId = 137; // Polygon Mainnet (use 80001 for Mumbai testnet)
-
-    const chainId = functions.config().web3?.chain_id || process.env.CHAIN_ID || '137'; // Polygon Mainnet
-
+    const tokenAddress = functions.config().web3?.token_address || process.env.SHARP_TOKEN_CONTRACT_ADDRESS || '0xae1bd58f5653956d460e9cdd5e5a6a7b3b3806a1';
+    const rpcUrl = functions.config().web3?.rpc_url || process.env.RPC_URL || 'https://sepolia.infura.io/v3/YOUR_INFURA_KEY';
+    const chainId = functions.config().web3?.chain_id || process.env.CHAIN_ID || '11155111'; // Sepolia testnet
 
     console.log('🔗 Blockchain Configuration:');
-    console.log('   Network: Polygon Mainnet');
+    console.log('   Network: Sepolia Testnet');
     console.log('   Chain ID:', chainId);
     console.log('   RPC URL:', rpcUrl);
     console.log('   Token Address:', tokenAddress ? tokenAddress.substring(0, 10) + '...' : 'NOT SET');
 
-
-    if (!privateKey || !tokenAddress) {
+    if (!privateKey || !tokenAddress || tokenAddress === ZERO_ADDRESS) {
       console.warn('Web3 configuration missing, skipping token transfer');
 
       // Save pending transaction
@@ -303,12 +303,12 @@ async function transferSHARPTokens(uid, toAddress, amount) {
         uid: uid,
         amount: amount,
         toAddress: toAddress,
-        txHash: tx.hash,
         status: 'pending',
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        blockExplorer: `https://polygonscan.com/tx/${tx.hash}`, // ADD THIS LINE
-        chainId: 137, // ADD THIS LINE
-        note: 'Game reward'
+        blockExplorer: `https://sepolia.etherscan.io/tx/pending`,
+        chainId: parseInt(chainId),
+        network: 'sepolia',
+        note: 'Game reward - awaiting backend configuration'
       });
 
       return null;
@@ -333,6 +333,9 @@ async function transferSHARPTokens(uid, toAddress, amount) {
       txHash: tx.hash,
       status: 'pending',
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      blockExplorer: `https://sepolia.etherscan.io/tx/${tx.hash}`,
+      chainId: parseInt(chainId),
+      network: 'sepolia',
       note: 'Game reward'
     });
 
@@ -366,6 +369,7 @@ async function transferSHARPTokens(uid, toAddress, amount) {
       status: 'failed',
       error: error.message,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      network: 'sepolia',
       note: 'Transfer failed'
     });
 

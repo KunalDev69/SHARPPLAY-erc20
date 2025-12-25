@@ -333,58 +333,43 @@ async function submitScore() {
   
   try {
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
-    const today = new Date().toISOString().split('T')[0];
-    const sharpReward = Math.min(5, Math.max(1, Math.floor(score / 2000)));
     
-    console.log('Calculated reward:', sharpReward, 'for score:', score);
-    
-    // Ensure user document exists
-    const userRef = db.collection('users').doc(currentUser.uid);
-    const userDoc = await userRef.get();
-    
-    if (!userDoc.exists) {
-      console.log('Creating user document...');
-      await userRef.set({
-        username: currentUser.displayName || currentUser.email?.split('@')[0] || 'Player',
-        email: currentUser.email,
-        tokensBalance: 0,
-        totalEarned: 0,
-        bestScore: 0,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-    }
-    
-    // Save score to Firestore
-    const scoreData = {
-      uid: currentUser.uid,
+    // Call Firebase Cloud Function to submit score and handle token transfer
+    const submitScoreFunction = firebase.functions().httpsCallable('submitScore');
+    const result = await submitScoreFunction({
       score: score,
       playDuration: elapsed,
+      timestamp: Date.now(),
       gameType: 'memory',
-      difficulty: difficulty,
-      moves: moves,
-      date: today,
-      sharpEarned: sharpReward,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    
-    console.log('Saving score data:', scoreData);
-    await db.collection('gamescores').add(scoreData);
-    console.log('Score saved successfully');
-    
-    // Update user balance
-    const currentBalance = userDoc.exists ? (userDoc.data().tokensBalance || 0) : 0;
-    const currentEarned = userDoc.exists ? (userDoc.data().totalEarned || 0) : 0;
-    
-    await userRef.update({
-      tokensBalance: firebase.firestore.FieldValue.increment(sharpReward),
-      totalEarned: firebase.firestore.FieldValue.increment(sharpReward),
-      lastPlayed: firebase.firestore.FieldValue.serverTimestamp(),
-      bestScore: Math.max(score, userDoc.exists ? (userDoc.data().bestScore || 0) : 0)
+      difficulty: difficulty
     });
+
+    const data = result.data;
     
-    console.log('User balance updated');
+    // Build success message
+    let message = `🎉 Score Submitted Successfully!\n\n🧠 Memory Game\n📊 Score: ${score.toLocaleString()}\n⏱️ Time: ${elapsed}s\n🎯 Moves: ${moves}\n💰 Earned: ${data.reward.toFixed(2)} SHARP`;
     
-    alert(`🎉 Score Submitted Successfully!\n\n🧠 Memory Game\n📊 Score: ${score.toLocaleString()}\n⏱️ Time: ${elapsed}s\n🎯 Moves: ${moves}\n💰 Earned: ${sharpReward} SHARP\n\nGreat job! 🎮`);
+    if (data.newBestScore) {
+      message += `\n\n🏆 New Best Score!`;
+    }
+    
+    if (data.dailyStreak > 0) {
+      message += `\n🔥 Daily Streak: ${data.dailyStreak} days`;
+    }
+    
+    message += `\n\nGreat job! 🎮`;
+
+    // Check if wallet is connected and show transaction info
+    if (data.txHash) {
+      message += `\n\n✅ Tokens transferred to your wallet!`;
+      
+      // Show transaction popup with Etherscan link
+      showTransactionPopup(data.txHash, data.reward, data.blockExplorer);
+    } else if (!data.walletAddress) {
+      message += `\n\n💡 Connect your wallet to receive tokens automatically!`;
+    }
+    
+    alert(message);
     
     setTimeout(() => {
       window.location.href = 'games.html';
@@ -394,32 +379,82 @@ async function submitScore() {
     console.error('Detailed error submitting score:', error);
     
     // More specific error messages
-    if (error.code === 'permission-denied') {
-      alert('❌ Permission Error!\n\nFirebase permissions not set up correctly.\nPlease try again in a few moments.');
-    } else if (error.code === 'unauthenticated') {
+    if (error.message && error.message.includes('unauthenticated')) {
       alert('❌ Not logged in!\n\nPlease log in again and try submitting.');
       window.location.href = 'index.html';
+    } else if (error.message && error.message.includes('failed-precondition')) {
+      alert('❌ ' + error.message);
     } else if (error.code === 'unavailable' || error.message.includes('offline')) {
-      alert('📶 Connection Issue!\n\nYou appear to be offline or have a slow connection.\nYour score will be saved when you reconnect.\n\nYour progress has been noted locally!');
-      
-      // Store locally for later sync
-      const localScore = {
-        score, moves, difficulty, 
-        timestamp: Date.now(),
-        gameType: 'memory'
-      };
-      localStorage.setItem('pending_score_' + Date.now(), JSON.stringify(localScore));
-      
-      setTimeout(() => {
-        window.location.href = 'games.html';
-      }, 3000);
+      alert('📶 Connection Issue!\n\nYou appear to be offline or have a slow connection.\nPlease try again when you have a stable connection.');
     } else {
-      alert(`❌ Error submitting score: ${error.message}\n\nError code: ${error.code || 'unknown'}\n\nPlease try again or contact support.`);
+      alert(`❌ Error submitting score: ${error.message || 'Unknown error'}\n\nPlease try again or contact support.`);
     }
   }
 }
 
-// Function removed - using shared game-utils.js instead
+function showTransactionPopup(txHash, reward, blockExplorer) {
+  // Remove any existing transaction popup
+  const existingPopup = document.querySelector('.transaction-popup');
+  if (existingPopup) {
+    existingPopup.remove();
+  }
+
+  const popup = document.createElement('div');
+  popup.className = 'transaction-popup';
+  popup.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, rgba(36, 45, 66, 0.98) 0%, rgba(30, 37, 54, 0.98) 100%);
+    backdrop-filter: blur(20px);
+    border: 2px solid #F6851B;
+    border-radius: 20px;
+    padding: 2rem;
+    z-index: 10000;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+    min-width: 320px;
+    max-width: 90%;
+    text-align: center;
+  `;
+  
+  const explorerUrl = blockExplorer || `https://sepolia.etherscan.io/tx/${txHash}`;
+  const shortTxHash = `${txHash.substring(0, 10)}...${txHash.substring(txHash.length - 8)}`;
+  
+  popup.innerHTML = `
+    <div class="popup-content">
+      <h3 style="color: #28C76F; margin-bottom: 1rem; font-size: 1.5rem;">🎉 Tokens Sent!</h3>
+      <p style="color: #fff; font-size: 1.2rem; margin-bottom: 1rem;">
+        Earned: <strong style="color: #F6851B;">${reward.toFixed(2)} SHARP</strong>
+      </p>
+      <p style="color: #B8C0D4; font-size: 0.9rem; margin-bottom: 1rem;">
+        Transaction: <code style="background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 4px;">${shortTxHash}</code>
+      </p>
+      <a href="${explorerUrl}" target="_blank" rel="noopener noreferrer" 
+         style="display: inline-block; background: linear-gradient(135deg, #F6851B 0%, #E91E63 100%); 
+                color: white; padding: 0.75rem 1.5rem; border-radius: 12px; text-decoration: none; 
+                margin: 0.5rem; font-weight: 600; transition: all 0.3s;">
+        View on Etherscan
+      </a>
+      <button onclick="this.parentElement.parentElement.remove()" 
+              style="display: inline-block; background: rgba(255,255,255,0.1); color: white; 
+                     padding: 0.75rem 1.5rem; border: 1px solid rgba(255,255,255,0.2); 
+                     border-radius: 12px; margin: 0.5rem; cursor: pointer; font-weight: 600;
+                     transition: all 0.3s;">
+        Close
+      </button>
+    </div>
+  `;
+  
+  document.body.appendChild(popup);
+
+  // Auto-remove after 15 seconds
+  setTimeout(() => {
+    if (popup.parentElement) {
+      popup.remove();
+    }
+  }, 15000);
+}
 
 // Auto-start on page load
 window.addEventListener('load', () => {

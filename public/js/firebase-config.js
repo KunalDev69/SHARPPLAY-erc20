@@ -190,6 +190,11 @@ function updateUIForLoggedInUser(user) {
   
   // Load and display profile photo
   loadNavProfilePhoto(user.uid);
+  
+  // Update wallet button state (enable it now that user is logged in)
+  if (typeof updateWalletUI === 'function') {
+    updateWalletUI(false); // Update to show "Connect Wallet" instead of "Sign In to Connect"
+  }
 }
 
 async function loadNavProfilePhoto(uid) {
@@ -235,6 +240,11 @@ function updateUIForLoggedOutUser() {
   
   if (loginBtn) loginBtn.style.display = 'block';
   if (userProfile) userProfile.style.display = 'none';
+  
+  // Update wallet button state (show sign in required)
+  if (typeof updateWalletUI === 'function') {
+    updateWalletUI(false); // Update to show "Sign In to Connect"
+  }
 }
 
 // Check authentication
